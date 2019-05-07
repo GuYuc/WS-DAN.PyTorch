@@ -9,13 +9,13 @@ Network for Fine-Grained Visual Classification"](https://arxiv.org/abs/1901.0989
 The framework introduce an attention based method for extracting more detailed features and more object's parts by Attention Cropping and Attention Dropping, see Fig 1. 
 
 ## Training Process and  Testing Process 
-![Fig2a](./images/Fig2a.png)
+![Fig2a](./images/Fig2a.PNG)
 
-![Fig2b](./images/Fig2b.png)
+![Fig2b](./images/Fig2b.PNG)
 
 ## Bilinear Attention Pooling (BAP)
 
-![Fig3](./images/Fig3.png)
+![Fig3](./images/Fig3.PNG)
 
 ## Usage
 1. ``` git clone``` this repo.
