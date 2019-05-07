@@ -22,3 +22,4 @@ The framework introduce an attention based method for extracting more detailed f
 2. Prepare image data and rewrite ```dataset.py``` for your CustomDataset.
 3. ```$ nohup python3 train_wsdan.py -j <num_workers> -b <batch_size> --sd <save_ckpt_directory> (etc.) 1>log.txt 2>&1 &``` (see ```train_wsdan.py``` for more training options)
 4. ```$ tail -f log.txt``` for logging information.
+
