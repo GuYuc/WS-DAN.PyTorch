@@ -4,6 +4,8 @@ Network for Fine-Grained Visual Classification"](https://arxiv.org/abs/1901.0989
 
 **NOTICE: This is NOT an official implementation by authors of WS-DAN.**
 
+**The official implementation is now available at [tau-yihouxiang/WS_DAN](https://github.com/tau-yihouxiang/WS_DAN).**
+
 
 ## Attention Cropping and Attention Dropping
 ![Fig1](./images/Fig1.png)
