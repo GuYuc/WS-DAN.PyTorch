@@ -22,7 +22,7 @@ Network for Fine-Grained Visual Classification"](https://arxiv.org/abs/1901.0989
 
 3. Training Process and Testing Process 
     <div align="left">
-    <img src="./images/Fig2a.PNG" height="400px" alt="Fig2a" >
+    <img src="./images/Fig2a.PNG" height="446px" alt="Fig2a" >
     <img src="./images/Fig2b.PNG" height="400px" alt="Fig2b" >
     </div>
 
@@ -62,9 +62,9 @@ net = WSDAN(num_classes=num_classes, M=num_attentions, net='resnet50', pretraine
   ```
   -/FGVC-Aircraft/data/
                   └─── images
-                  		└─── 0034309.jpg
-                  		└─── 0034958.jpg
-                  		└─── ...
+                      └─── 0034309.jpg
+                      └─── 0034958.jpg
+                      └─── ...
                   └─── variants.txt
                   └─── images_variant_trainval.txt
                   └─── images_variant_test.txt
@@ -79,8 +79,8 @@ net = WSDAN(num_classes=num_classes, M=num_attentions, net='resnet50', pretraine
           └─── train_test_split.txt
           └─── images
                   └─── 001.Black_footed_Albatross
-                          └─── Black_Footed_Albatross_0001_796111.jpg
-                          └─── ...
+                      └─── Black_Footed_Albatross_0001_796111.jpg
+                      └─── ...
                   └─── 002.Laysan_Albatross
                   └─── ...
   ```
@@ -90,15 +90,15 @@ net = WSDAN(num_classes=num_classes, M=num_attentions, net='resnet50', pretraine
   ```
   -/StanfordCars
   		└─── cars_test
-  				└─── 00001.jpg
-                  └─── 00002.jpg
-                  └─── ...
+              └─── 00001.jpg
+              └─── 00002.jpg
+              └─── ...
           └─── cars_train
-  				└─── 00001.jpg
-                  └─── 00002.jpg
-                  └─── ...
+              └─── 00001.jpg
+              └─── 00002.jpg
+              └─── ...
           └─── devkit
-          		└─── cars_train_annos.mat
+              └─── cars_train_annos.mat
           └─── cars_test_annos_withlabels.mat
   ```
 
@@ -107,10 +107,10 @@ net = WSDAN(num_classes=num_classes, M=num_attentions, net='resnet50', pretraine
   ```
   -/StanfordDogs
   		└─── Images
-  				└─── n02085620-Chihuahua
-                          └─── n02085620_10074.jpg
-                          └─── ...
-                  └─── n02085782-Japanese_spaniel
+              └─── n02085620-Chihuahua
+                  └─── n02085620_10074.jpg
+                  └─── ...
+              └─── n02085782-Japanese_spaniel
                   └─── ...
           └─── train_list.mat
           └─── test_list.mat
