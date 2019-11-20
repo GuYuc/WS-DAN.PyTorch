@@ -1,9 +1,9 @@
 """TRAINING
 Created: May 04,2019 - Yuchong Gu
-Revised: May 07,2019 - Yuchong Gu
+Revised: Oct 11,2019 - Yuchong Gu
 """
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 import time
 import logging
 import warnings
@@ -17,7 +17,9 @@ from optparse import OptionParser
 
 from utils import accuracy
 from models import *
-from dataset import *
+from datasets import BirdDataset
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def main():
@@ -50,16 +52,16 @@ def main():
     ##################################
     # Initialize model
     ##################################
-    image_size = (512, 512)
-    num_classes = 1000
+    image_size = 500
+    num_classes = 200
     num_attentions = 32
     start_epoch = 0
 
     feature_net = inception_v3(pretrained=True)
-    net = WSDAN(num_classes=num_classes, M=num_attentions, net=feature_net)
+    net = WSDAN(num_classes=num_classes, M=num_attentions, net=feature_net, add_fc=False)
 
     # feature_center: size of (#classes, #attention_maps, #channel_features)
-    feature_center = torch.zeros(num_classes, num_attentions, net.num_features * net.expansion).to(torch.device("cuda"))
+    feature_center = torch.zeros(num_classes, num_attentions, net.num_features * net.expansion).to(device)
 
     if options.ckpt:
         ckpt = options.ckpt
@@ -79,7 +81,7 @@ def main():
 
         # load feature center
         if 'feature_center' in checkpoint:
-            feature_center = checkpoint['feature_center'].to(torch.device("cuda"))
+            feature_center = checkpoint['feature_center'].to(device)
             logging.info('feature_center loaded from {}'.format(options.ckpt))
 
     ##################################
@@ -93,14 +95,14 @@ def main():
     # Use cuda
     ##################################
     cudnn.benchmark = True
-    net.to(torch.device("cuda"))
+    net.to(device)
     net = nn.DataParallel(net)
 
     ##################################
     # Load dataset
     ##################################
-    train_dataset, validate_dataset = CustomDataset(phase='train', shape=image_size), \
-                                      CustomDataset(phase='val'  , shape=image_size)
+    train_dataset, validate_dataset = BirdDataset(phase='train', resize=image_size), \
+                                      BirdDataset(phase='val'  , resize=image_size)
 
     train_loader, validate_loader = DataLoader(train_dataset, batch_size=options.batch_size, shuffle=True,
                                                num_workers=options.workers, pin_memory=True), \
@@ -113,8 +115,8 @@ def main():
     ##################################
     # Learning rate scheduling
     ##################################
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=2)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.9)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=2)
+    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.9)
 
     ##################################
     # TRAINING
@@ -122,6 +124,12 @@ def main():
     logging.info('')
     logging.info('Start training: Total epochs: {}, Batch size: {}, Training size: {}, Validation size: {}'.
                  format(options.epochs, options.batch_size, len(train_dataset), len(validate_dataset)))
+
+    # Default Parameters
+    beta = 1e-4
+    theta_c = 0.5
+    theta_d = 0.5
+    crop_size = (384, 384)  # size of cropped images for 'See Better'
 
     for epoch in range(start_epoch, options.epochs):
         train(epoch=epoch,
@@ -132,12 +140,18 @@ def main():
               optimizer=optimizer,
               save_freq=options.save_freq,
               save_dir=options.save_dir,
+              beta=beta,
+              theta_c=theta_c,
+              theta_d=theta_d,
+              crop_size=crop_size,
               verbose=options.verbose)
         val_loss = validate(data_loader=validate_loader,
                             net=net,
                             loss=loss,
+                            theta_c=theta_c,
+                            crop_size=crop_size,
                             verbose=options.verbose)
-        scheduler.step()
+        scheduler.step(val_loss)
 
 
 def train(**kwargs):
@@ -151,15 +165,13 @@ def train(**kwargs):
     save_freq = kwargs['save_freq']
     save_dir = kwargs['save_dir']
     verbose = kwargs['verbose']
+    beta = kwargs['beta']
+    theta_c = kwargs['theta_c']
+    theta_d = kwargs['theta_d']
+    crop_size = kwargs['crop_size']
 
     # Attention Regularization: LA Loss
     l2_loss = nn.MSELoss()
-
-    # Default Parameters
-    beta = 1e-4
-    theta_c = 0.5
-    theta_d = 0.5
-    crop_size = (256, 256)  # size of cropped images for 'See Better'
 
     # metrics initialization
     batches = 0
@@ -176,8 +188,8 @@ def train(**kwargs):
         batch_start = time.time()
 
         # obtain data for training
-        X = X.to(torch.device("cuda"))
-        y = y.to(torch.device("cuda"))
+        X = X.to(device)
+        y = y.to(device)
 
         ##################################
         # Raw Image
@@ -299,10 +311,8 @@ def validate(**kwargs):
     net = kwargs['net']
     loss = kwargs['loss']
     verbose = kwargs['verbose']
-
-    # Default Parameters
-    theta_c = 0.5
-    crop_size = (256, 256)  # size of cropped images for 'See Better'
+    theta_c = kwargs['theta_c']
+    crop_size = kwargs['crop_size']
 
     # metrics initialization
     batches = 0
@@ -317,8 +327,8 @@ def validate(**kwargs):
             batch_start = time.time()
 
             # obtain data
-            X = X.to(torch.device("cuda"))
-            y = y.to(torch.device("cuda"))
+            X = X.to(device)
+            y = y.to(device)
 
             ##################################
             # Raw Image
