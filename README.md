@@ -34,7 +34,7 @@ Network for Fine-Grained Visual Classification"](https://arxiv.org/abs/1901.0989
 |-------|------|--------|-----|----|----------------|--------------------|---|
 |CUB-200-2011|Bird|200|5,994|5,794|89.4|86.68|inception_mixed_6e|
 |FGVC-Aircraft|Aircraft|100|6,667|3,333|93.0|-|inception_mixed_6e|
-|Stanford Cars|Car|196|8,144|8,041|94.5|-|inception_mixed_6e|
+|Stanford Cars|Car|196|8,144|8,041|94.5|91.23|inception_mixed_6e|
 |Stanford Dogs|Dog|120|12,000|8,580|92.2|89.39|inception_mixed_7c|
 
 
@@ -106,10 +106,10 @@ net = WSDAN(num_classes=num_classes, M=num_attentions, net='resnet50', pretraine
   -/StanfordDogs
         └─── Images
             └─── n02085620-Chihuahua
-                └─── n02085620_10074.jpg
-                └─── ...
+                    └─── n02085620_10074.jpg
+                    └─── ...
             └─── n02085782-Japanese_spaniel
-                └─── ...
+                    └─── ...
         └─── train_list.mat
         └─── test_list.mat
   ```
@@ -131,7 +131,10 @@ net = WSDAN(num_classes=num_classes, M=num_attentions, net='resnet50', pretraine
 Codes in ```eval.py``` helps generate attention maps. (Image, Heat Attention Map, Image x Attention Map)
 
 <div align="center">
-<img src="./images/007_raw.jpg" height="200px" alt="Raw" ><img src="./images/007_heat_atten.jpg" height="200px" alt="Heat" ><img src="./images/007_raw_atten.jpg" height="200px" alt="Atten" >
+<img src="./images/007_raw.jpg" height="200px" alt="Raw" >
+<img src="./images/007_heat_atten.jpg" height="200px" alt="Heat" >
+<img src="./images/007_raw_atten.jpg" height="200px" alt="Atten" >
 </div>
+
 
 
