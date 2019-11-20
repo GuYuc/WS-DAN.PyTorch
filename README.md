@@ -12,17 +12,17 @@ Network for Fine-Grained Visual Classification"](https://arxiv.org/abs/1901.0989
 ## Innovations
 1. Data Augmentation: Attention Cropping and Attention Dropping
     <div align="center">
-    <img src="./images/Fig1.png" height="450px" alt="Fig1" >
+    <img src="./images/Fig1.png" height="500px" alt="Fig1" >
     </div>
 
 2. Bilinear Attention Pooling (BAP) for Features Generation
     <div align="center">
-    <img src="./images/Fig3.png" height="300px" alt="Fig3" >
+    <img src="./images/Fig3.PNG" height="400px" alt="Fig3" >
     </div>
 
 3. Training Process and Testing Process 
     <div align="center">
-    <img src="./images/Fig2a.png" height="280px" alt="Fig2a" ><img src="./images/Fig2b.png" height="250px" alt="Fig2b" >
+    <img src="./images/Fig2a.PNG" height="280px" alt="Fig2a" ><img src="./images/Fig2b.PNG" height="250px" alt="Fig2b" >
     </div>
 
 
