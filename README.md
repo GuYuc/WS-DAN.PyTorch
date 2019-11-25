@@ -29,12 +29,13 @@ Network for Fine-Grained Visual Classification"](https://arxiv.org/abs/1901.0989
 
 
 ## Performance
+* PyTorch experiments were done on two Titan Xp GPUs.
 
-|Dataset|Object|Category|Train|Test|Accuracy (Paper)|Accuracy (This repo)|Feature Net|
+|Dataset|Object|Category|Train|Test|Accuracy (Paper)|Accuracy (Pytorch)|Feature Net|
 |-------|------|--------|-----|----|----------------|--------------------|---|
 |CUB-200-2011|Bird|200|5,994|5,794|89.4|86.68|inception_mixed_6e|
-|FGVC-Aircraft|Aircraft|100|6,667|3,333|93.0|-|inception_mixed_6e|
-|Stanford Cars|Car|196|8,144|8,041|94.5|91.23|inception_mixed_6e|
+|FGVC-Aircraft|Aircraft|100|6,667|3,333|93.0|89.32|inception_mixed_6e|
+|Stanford Cars|Car|196|8,144|8,041|94.5|92.70|inception_mixed_6e|
 |Stanford Dogs|Dog|120|12,000|8,580|92.2|89.39|inception_mixed_7c|
 
 
