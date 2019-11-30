@@ -1,13 +1,25 @@
 """Utils
 Created: Nov 11,2019 - Yuchong Gu
-Revised: Nov 19,2019 - Yuchong Gu
+Revised: Nov 29,2019 - Yuchong Gu
 """
-import pdb
 import torch
 import random
 import numpy as np
+import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms as transforms
+
+
+##############################################
+# Center Loss for Attention Regularization
+##############################################
+class CenterLoss(nn.Module):
+    def __init__(self):
+        super(CenterLoss, self).__init__()
+        self.l2_loss = nn.MSELoss(reduction='sum')
+
+    def forward(self, outputs, targets):
+        return self.l2_loss(outputs, targets) / outputs.size(0)
 
 
 ##################################
@@ -41,21 +53,20 @@ class TopKAccuracyMetric(Metric):
 
     def reset(self):
         self.corrects = np.zeros(len(self.topk))
-        self.num_samples = 0
+        self.num_samples = 0.
 
     def __call__(self, output, target):
         """Computes the precision@k for the specified values of k"""
         self.num_samples += target.size(0)
-
         _, pred = output.topk(self.maxk, 1, True, True)
         pred = pred.t()
         correct = pred.eq(target.view(1, -1).expand_as(pred))
 
         for i, k in enumerate(self.topk):
             correct_k = correct[:k].view(-1).float().sum(0)
-            self.corrects[i] += correct_k.mul_(100.)
+            self.corrects[i] += correct_k.item()
 
-        return self.corrects / self.num_samples
+        return self.corrects * 100. / self.num_samples
 
 
 ##################################
@@ -130,11 +141,11 @@ class ModelCheckpoint(Callback):
 # augment function
 ##################################
 def batch_augment(images, attention_map, mode='crop', theta=0.5):
-    imgH, imgW = images.size(2), images.size(3)
+    batches, _, imgH, imgW = images.size()
 
     if mode == 'crop':
         crop_images = []
-        for batch_index in range(attention_map.size(0)):
+        for batch_index in range(batches):
             atten_map = attention_map[batch_index:batch_index + 1]
             if isinstance(theta, tuple):
                 theta_c = random.uniform(*theta) * atten_map.max()
@@ -143,10 +154,11 @@ def batch_augment(images, attention_map, mode='crop', theta=0.5):
 
             crop_mask = F.upsample_bilinear(atten_map, size=(imgH, imgW)) >= theta_c
             nonzero_indices = torch.nonzero(crop_mask[0, 0, ...])
-            height_min = nonzero_indices[:, 0].min()
-            height_max = nonzero_indices[:, 0].max()
-            width_min = nonzero_indices[:, 1].min()
-            width_max = nonzero_indices[:, 1].max()
+            height_min = max(int(nonzero_indices[:, 0].min().item() - 0.05 * imgH), 0)
+            height_max = min(int(nonzero_indices[:, 0].max().item() + 0.05 * imgH), imgH)
+            width_min = max(int(nonzero_indices[:, 1].min().item() - 0.05 * imgW), 0)
+            width_max = min(int(nonzero_indices[:, 1].max().item() + 0.05 * imgW), imgW)
+
             crop_images.append(
                 F.upsample_bilinear(images[batch_index:batch_index + 1, :, height_min:height_max, width_min:width_max],
                                     size=(imgH, imgW)))
@@ -155,7 +167,7 @@ def batch_augment(images, attention_map, mode='crop', theta=0.5):
 
     elif mode == 'drop':
         drop_masks = []
-        for batch_index in range(attention_map.size(0)):
+        for batch_index in range(batches):
             atten_map = attention_map[batch_index:batch_index + 1]
             if isinstance(theta, tuple):
                 theta_d = random.uniform(*theta) * atten_map.max()
@@ -177,17 +189,10 @@ def batch_augment(images, attention_map, mode='crop', theta=0.5):
 def get_transform(resize, phase='train'):
     if phase == 'train':
         return transforms.Compose([
-            transforms.Resize(size=int(resize / 0.875) if isinstance(resize, int) else (int(resize[0] / 0.875), int(resize[1] / 0.875))),
+            transforms.Resize(size=(int(resize[0] / 0.875), int(resize[1] / 0.875))),
             transforms.RandomCrop(resize),
             transforms.RandomHorizontalFlip(0.5),
-            transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-    elif phase == 'val':
-        return transforms.Compose([
-            transforms.Resize(resize),
-            transforms.CenterCrop(resize),
+            transforms.ColorJitter(brightness=0.4, contrast=0.5, saturation=0.5, hue=0.2),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])

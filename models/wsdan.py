@@ -6,7 +6,7 @@ Hu et al.,
 arXiv:1901.09891
 
 Created: May 04,2019 - Yuchong Gu
-Revised: Nov 19,2019 - Yuchong Gu
+Revised: Nov 28,2019 - Yuchong Gu
 """
 import logging
 import numpy as np
@@ -28,26 +28,33 @@ class BAP(nn.Module):
         super(BAP, self).__init__()
         assert pool in ['GAP', 'GMP']
         if pool == 'GAP':
-            self.pool = nn.AdaptiveAvgPool2d(1)
+            self.pool = None
         else:
             self.pool = nn.AdaptiveMaxPool2d(1)
 
     def forward(self, features, attentions):
-        B = features.size(0)
-        M = attentions.size(1)
+        B, C, H, W = features.size()
+        _, M, AH, AW = attentions.size()
 
-        # feature_matrix: (B, M * C)
-        feature_matrix = []
-        for i in range(M):
-            AiF = self.pool(features * attentions[:, i:i + 1, ...]).view(B, -1)
-            feature_matrix.append(AiF)
-        feature_matrix = torch.cat(feature_matrix, dim=1)
+        # match size
+        if AH != H or AW != W:
+            attentions = F.upsample_bilinear(attentions, size=(H, W))
+
+        # feature_matrix: (B, M, C) -> (B, M * C)
+        if self.pool is None:
+            feature_matrix = (torch.einsum('imjk,injk->imn', (attentions, features)) / (H * W)).view(B, -1)
+        else:
+            feature_matrix = []
+            for i in range(M):
+                AiF = self.pool(features * attentions[:, i:i + 1, ...]).view(B, -1)
+                feature_matrix.append(AiF)
+            feature_matrix = torch.cat(feature_matrix, dim=1)
 
         # sign-sqrt
         feature_matrix = torch.sign(feature_matrix) * torch.sqrt(torch.abs(feature_matrix) + EPSILON)
 
         # l2 normalization along dimension M and C
-        feature_matrix = F.normalize(feature_matrix, dim=1)
+        feature_matrix = F.normalize(feature_matrix, dim=-1)
         return feature_matrix
 
 
@@ -57,6 +64,7 @@ class WSDAN(nn.Module):
         super(WSDAN, self).__init__()
         self.num_classes = num_classes
         self.M = M
+        self.net = net
 
         # Network Initialization
         if 'inception' in net:
@@ -84,18 +92,19 @@ class WSDAN(nn.Module):
         self.bap = BAP(pool='GAP')
 
         # Classification Layer
-        self.fc = nn.Linear(self.M * self.num_features, self.num_classes)
+        self.fc = nn.Linear(self.M * self.num_features, self.num_classes, bias=False)
 
-        logging.info('WSDAN: using {} as feature extractor, num_classes: {}, num_attentions: {}'.format(net,
-                                                                                                        self.num_classes,
-                                                                                                        self.M))
+        logging.info('WSDAN: using {} as feature extractor, num_classes: {}, num_attentions: {}'.format(net, self.num_classes, self.M))
 
     def forward(self, x):
         batch_size = x.size(0)
 
         # Feature Maps, Attention Maps and Feature Matrix
         feature_maps = self.features(x)
-        attention_maps = self.attentions(feature_maps)
+        if self.net != 'inception_mixed_7c':
+            attention_maps = self.attentions(feature_maps)
+        else:
+            attention_maps = feature_maps[:, :self.M, ...]
         feature_matrix = self.bap(feature_maps, attention_maps)
 
         # Classification
@@ -104,17 +113,23 @@ class WSDAN(nn.Module):
         # Generate Attention Map
         if self.training:
             # Randomly choose one of attention maps Ak
-            k_indices = np.random.randint(self.M, size=batch_size)
             attention_map = []
             for i in range(batch_size):
-                attention_map.append(attention_maps[i, k_indices[i]:k_indices[i] + 1, ...])
+                attention_weights = torch.sqrt(attention_maps[i].sum(dim=(1, 2)).detach())
+                attention_weights[attention_weights != attention_weights] = 0.  # get rid of NaN
+                if torch.sum(attention_weights) > 0.:
+                    attention_weights /= torch.sum(attention_weights)
+                    k_index = np.random.choice(self.M, p=attention_weights.cpu().numpy())
+                else:
+                    k_index = np.random.choice(self.M)
+                attention_map.append(attention_maps[i, k_index:k_index + 1, ...])
             attention_map = torch.stack(attention_map)
         else:
-            # Object Localization Am = mean(sum(Ak))
+            # Object Localization Am = mean(Ak)
             attention_map = torch.mean(attention_maps, dim=1, keepdim=True)  # (B, 1, H, W)
 
         # p: (B, self.num_classes)
-        # feature_matrix: (B, M*C)
+        # feature_matrix: (B, M * C)
         # attention_map: (B, 1, H, W)
         return p, feature_matrix, attention_map
 

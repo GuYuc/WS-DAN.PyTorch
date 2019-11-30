@@ -1,6 +1,6 @@
 """TRAINING
 Created: May 04,2019 - Yuchong Gu
-Revised: Nov 19,2019 - Yuchong Gu
+Revised: Nov 29,2019 - Yuchong Gu
 """
 import os
 import time
@@ -14,9 +14,9 @@ import torch.backends.cudnn as cudnn
 from torch.utils.data import DataLoader
 
 import config
-from utils import AverageMeter, TopKAccuracyMetric, ModelCheckpoint, batch_augment
-from models import *
-from datasets import *
+from models import WSDAN
+from datasets import get_trainval_datasets
+from utils import CenterLoss, AverageMeter, TopKAccuracyMetric, ModelCheckpoint, batch_augment
 
 # GPU settings
 os.environ['CUDA_VISIBLE_DEVICES'] = config.GPU
@@ -24,7 +24,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # General loss functions
 cross_entropy_loss = nn.CrossEntropyLoss()
-l2_loss = nn.MSELoss()
+center_loss = CenterLoss()
 
 # loss and metric
 loss_container = AverageMeter(name='loss')
@@ -53,8 +53,7 @@ def main():
     ##################################
     # Load dataset
     ##################################
-    train_dataset, validate_dataset = CarDataset(phase='train', resize=config.image_size), \
-                                      CarDataset(phase='val'  , resize=config.image_size)
+    train_dataset, validate_dataset = get_trainval_datasets(config.tag, config.image_size)
 
     train_loader, validate_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True,
                                                num_workers=config.workers, pin_memory=True), \
@@ -67,7 +66,7 @@ def main():
     ##################################
     logs = {}
     start_epoch = 0
-    net = WSDAN(num_classes=num_classes, M=config.num_attentions, net='inception_mixed_6e', pretrained=True)
+    net = WSDAN(num_classes=num_classes, M=config.num_attentions, net=config.net, pretrained=True)
 
     # feature_center: size of (#classes, #attention_maps * #channel_features)
     feature_center = torch.zeros(num_classes, config.num_attentions * net.num_features).to(device)
@@ -102,9 +101,11 @@ def main():
     ##################################
     # Optimizer, LR Scheduler
     ##################################
-    optimizer = torch.optim.SGD(net.parameters(), lr=config.learning_rate, momentum=0.9, weight_decay=0.00001)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.9, patience=2)
-    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.9)
+    learning_rate = logs['lr'] if 'lr' in logs else config.learning_rate
+    optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, momentum=0.9, weight_decay=1e-5)
+
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.9, patience=2)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.9)
 
     ##################################
     # ModelCheckpoint
@@ -129,6 +130,8 @@ def main():
         callback.on_epoch_begin()
 
         logs['epoch'] = epoch + 1
+        logs['lr'] = optimizer.param_groups[0]['lr']
+
         logging.info('Epoch {:03d}, Learning Rate {:g}'.format(epoch + 1, optimizer.param_groups[0]['lr']))
 
         pbar = tqdm(total=len(train_loader), unit=' batches')
@@ -173,6 +176,8 @@ def train(**kwargs):
     start_time = time.time()
     net.train()
     for i, (X, y) in enumerate(data_loader):
+        optimizer.zero_grad()
+
         # obtain data for training
         X = X.to(device)
         y = y.to(device)
@@ -184,19 +189,8 @@ def train(**kwargs):
         y_pred_raw, feature_matrix, attention_map = net(X)
 
         # Update Feature Center
-        feature_center_batch = F.normalize(feature_center[y], dim=1)
+        feature_center_batch = F.normalize(feature_center[y], dim=-1)
         feature_center[y] += config.beta * (feature_matrix.detach() - feature_center_batch)
-
-        # loss
-        batch_loss = cross_entropy_loss(y_pred_raw, y) + l2_loss(feature_matrix, feature_center_batch)
-
-        optimizer.zero_grad()
-        batch_loss.backward()
-        optimizer.step()
-
-        # metrics: loss
-        with torch.no_grad():
-            epoch_loss = loss_container(batch_loss.item())
 
         ##################################
         # Attention Cropping
@@ -206,11 +200,6 @@ def train(**kwargs):
 
         # crop images forward
         y_pred_crop, _, _ = net(crop_images)
-        batch_loss = cross_entropy_loss(y_pred_crop, y)
-
-        optimizer.zero_grad()
-        batch_loss.backward()
-        optimizer.step()
 
         ##################################
         # Attention Dropping
@@ -220,14 +209,20 @@ def train(**kwargs):
 
         # drop images forward
         y_pred_drop, _, _ = net(drop_images)
-        batch_loss = cross_entropy_loss(y_pred_drop, y)
 
-        optimizer.zero_grad()
+        # loss
+        batch_loss = cross_entropy_loss(y_pred_raw, y) / 3. + \
+                     cross_entropy_loss(y_pred_crop, y) / 3. + \
+                     cross_entropy_loss(y_pred_drop, y) / 3. + \
+                     center_loss(feature_matrix, feature_center_batch)
+
+        # backward
         batch_loss.backward()
         optimizer.step()
 
-        # metrics: top-1,5 error
+        # metrics: loss and top-1,5 error
         with torch.no_grad():
+            epoch_loss = loss_container(batch_loss.item())
             epoch_raw_acc = raw_metric(y_pred_raw, y)
             epoch_crop_acc = crop_metric(y_pred_crop, y)
             epoch_drop_acc = drop_metric(y_pred_drop, y)
@@ -305,8 +300,6 @@ def validate(**kwargs):
     # write log for this epoch
     logging.info('Valid: {}, Time {:3.2f}'.format(batch_info, end_time - start_time))
     logging.info('')
-
-    return epoch_loss
 
 
 if __name__ == '__main__':

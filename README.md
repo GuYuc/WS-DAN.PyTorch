@@ -29,14 +29,14 @@ Network for Fine-Grained Visual Classification"](https://arxiv.org/abs/1901.0989
 
 
 ## Performance
-* PyTorch experiments were done on two Titan Xp GPUs.
+* PyTorch experiments were done on a Titan Xp GPU (batch_size = 12).
 
 |Dataset|Object|Category|Train|Test|Accuracy (Paper)|Accuracy (Pytorch)|Feature Net|
 |-------|------|--------|-----|----|----------------|--------------------|---|
-|CUB-200-2011|Bird|200|5,994|5,794|89.4|86.68|inception_mixed_6e|
-|FGVC-Aircraft|Aircraft|100|6,667|3,333|93.0|89.32|inception_mixed_6e|
-|Stanford Cars|Car|196|8,144|8,041|94.5|92.70|inception_mixed_6e|
-|Stanford Dogs|Dog|120|12,000|8,580|92.2|89.39|inception_mixed_7c|
+|CUB-200-2011|Bird|200|5,994|5,794|89.4|87.69|inception_mixed_6e|
+|FGVC-Aircraft|Aircraft|100|6,667|3,333|93.0|92.02|inception_mixed_6e|
+|Stanford Cars|Car|196|8,144|8,041|94.5|94.20|inception_mixed_6e|
+|Stanford Dogs|Dog|120|12,000|8,580|92.2|89.42|inception_mixed_7c|
 
 
 
@@ -118,14 +118,19 @@ net = WSDAN(num_classes=num_classes, M=num_attentions, net='resnet50', pretraine
 ### Run
 
 1. ``` git clone``` this repo.
+
 2. Prepare data and **modify DATAPATH** in ```datasets/<abcd>_dataset.py```.
-3. Set configurations in ```config.py``` and set correct dataset in ```train.py```:
+
+3. Set configurations in ```config.py``` (Training Config, Model Config, Dataset/Path Config):
     ```python
-    train_dataset = BirdDataset(phase='train', resize=config.image_size)
-    validate_dataset = DogDataset(phase='val', resize=config.image_size)
+    tag = 'aircraft'  # 'aircraft', 'bird', 'car', or 'dog'
     ```
-4. ```$ nohup python3 train.py > progress.bar &```
-5. ```$ tail -f progress.bar``` for training process (other logs are written in ```<config.save_dir>/train.log```).
+    
+4. ```$ nohup python3 train.py > progress.bar &``` for training.
+
+5. ```$ tail -f progress.bar``` to see training process (other logs are written in ```<config.save_dir>/train.log```).
+
+6. Set configurations in ```config.py``` (Eval Config) and run ```$ python3 eval.py``` for evaluation and visualization.
 
 ### Attention Maps Visualization
 
