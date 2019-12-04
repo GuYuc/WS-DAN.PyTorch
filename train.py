@@ -1,6 +1,6 @@
 """TRAINING
 Created: May 04,2019 - Yuchong Gu
-Revised: Nov 29,2019 - Yuchong Gu
+Revised: Dec 03,2019 - Yuchong Gu
 """
 import os
 import time
@@ -10,7 +10,6 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.backends.cudnn as cudnn
 from torch.utils.data import DataLoader
 
 import config
@@ -19,8 +18,10 @@ from datasets import get_trainval_datasets
 from utils import CenterLoss, AverageMeter, TopKAccuracyMetric, ModelCheckpoint, batch_augment
 
 # GPU settings
+assert torch.cuda.is_available()
 os.environ['CUDA_VISIBLE_DEVICES'] = config.GPU
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda")
+torch.backends.cudnn.benchmark = True
 
 # General loss functions
 cross_entropy_loss = nn.CrossEntropyLoss()
@@ -94,9 +95,9 @@ def main():
     ##################################
     # Use cuda
     ##################################
-    cudnn.benchmark = True
     net.to(device)
-    net = nn.DataParallel(net)
+    if torch.cuda.device_count() > 1:
+        net = nn.DataParallel(net)
 
     ##################################
     # Optimizer, LR Scheduler
@@ -196,7 +197,7 @@ def train(**kwargs):
         # Attention Cropping
         ##################################
         with torch.no_grad():
-            crop_images = batch_augment(X, attention_map, mode='crop', theta=(0.4, 0.6))
+            crop_images = batch_augment(X, attention_map[:, :1, :, :], mode='crop', theta=(0.4, 0.6), padding_ratio=0.1)
 
         # crop images forward
         y_pred_crop, _, _ = net(crop_images)
@@ -205,7 +206,7 @@ def train(**kwargs):
         # Attention Dropping
         ##################################
         with torch.no_grad():
-            drop_images = batch_augment(X, attention_map, mode='drop', theta=(0.2, 0.5))
+            drop_images = batch_augment(X, attention_map[:, 1:, :, :], mode='drop', theta=(0.2, 0.5))
 
         # drop images forward
         y_pred_drop, _, _ = net(drop_images)
@@ -274,7 +275,7 @@ def validate(**kwargs):
             ##################################
             # Object Localization and Refinement
             ##################################
-            crop_images = batch_augment(X, attention_map, mode='crop', theta=0.1)
+            crop_images = batch_augment(X, attention_map, mode='crop', theta=0.1, padding_ratio=0.05)
             y_pred_crop, _, _ = net(crop_images)
 
             ##################################

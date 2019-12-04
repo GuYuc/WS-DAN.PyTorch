@@ -6,7 +6,7 @@ Hu et al.,
 arXiv:1901.09891
 
 Created: May 04,2019 - Yuchong Gu
-Revised: Nov 28,2019 - Yuchong Gu
+Revised: Dec 03,2019 - Yuchong Gu
 """
 import logging
 import numpy as np
@@ -42,7 +42,7 @@ class BAP(nn.Module):
 
         # feature_matrix: (B, M, C) -> (B, M * C)
         if self.pool is None:
-            feature_matrix = (torch.einsum('imjk,injk->imn', (attentions, features)) / (H * W)).view(B, -1)
+            feature_matrix = (torch.einsum('imjk,injk->imn', (attentions, features)) / float(H * W)).view(B, -1)
         else:
             feature_matrix = []
             for i in range(M):
@@ -115,22 +115,18 @@ class WSDAN(nn.Module):
             # Randomly choose one of attention maps Ak
             attention_map = []
             for i in range(batch_size):
-                attention_weights = torch.sqrt(attention_maps[i].sum(dim=(1, 2)).detach())
-                attention_weights[attention_weights != attention_weights] = 0.  # get rid of NaN
-                if torch.sum(attention_weights) > 0.:
-                    attention_weights /= torch.sum(attention_weights)
-                    k_index = np.random.choice(self.M, p=attention_weights.cpu().numpy())
-                else:
-                    k_index = np.random.choice(self.M)
-                attention_map.append(attention_maps[i, k_index:k_index + 1, ...])
-            attention_map = torch.stack(attention_map)
+                attention_weights = torch.sqrt(attention_maps[i].sum(dim=(1, 2)).detach() + EPSILON)
+                attention_weights = F.normalize(attention_weights, p=1, dim=0)
+                k_index = np.random.choice(self.M, 2, p=attention_weights.cpu().numpy())
+                attention_map.append(attention_maps[i, k_index, ...])
+            attention_map = torch.stack(attention_map)  # (B, 2, H, W) - one for cropping, the other for dropping
         else:
             # Object Localization Am = mean(Ak)
             attention_map = torch.mean(attention_maps, dim=1, keepdim=True)  # (B, 1, H, W)
 
         # p: (B, self.num_classes)
         # feature_matrix: (B, M * C)
-        # attention_map: (B, 1, H, W)
+        # attention_map: (B, 2, H, W) in training, (B, 1, H, W) in val/testing
         return p, feature_matrix, attention_map
 
     def load_state_dict(self, state_dict, strict=True):

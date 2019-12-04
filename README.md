@@ -1,10 +1,8 @@
 # WS-DAN.PyTorch
-A PyTorch implementation of WS-DAN (Weakly Supervised Data Augmentation Network) for FGVC (Fine-Grained Visual Classification). (_Hu et al._, ["See Better Before Looking Closer: Weakly Supervised Data Augmentation
+A neat PyTorch implementation of WS-DAN (Weakly Supervised Data Augmentation Network) for FGVC (Fine-Grained Visual Classification). (_Hu et al._, ["See Better Before Looking Closer: Weakly Supervised Data Augmentation
 Network for Fine-Grained Visual Classification"](https://arxiv.org/abs/1901.09891v2), arXiv:1901.09891)
 
-**NOTICE: This is NOT an official implementation by authors of WS-DAN. The official implementation is available at [tau-yihouxiang/WS_DAN](https://github.com/tau-yihouxiang/WS_DAN).**
-
-**UPDATE (Nov 2019)**: Experiments on Aircraft/Bird/Car/Dog datasets and code reorganization.
+**NOTICE: This is NOT an official implementation by authors of WS-DAN. The official implementation is available at [tau-yihouxiang/WS_DAN](https://github.com/tau-yihouxiang/WS_DAN) (and there's another unofficial PyTorch version [wvinzh/WS_DAN_PyTorch](https://github.com/wvinzh/WS_DAN_PyTorch)).** 
 
 
 
@@ -31,12 +29,12 @@ Network for Fine-Grained Visual Classification"](https://arxiv.org/abs/1901.0989
 ## Performance
 * PyTorch experiments were done on a Titan Xp GPU (batch_size = 12).
 
-|Dataset|Object|Category|Train|Test|Accuracy (Paper)|Accuracy (Pytorch)|Feature Net|
+|Dataset|Object|Category|Train|Test|Accuracy (Paper)|Accuracy (PyTorch)|Feature Net|
 |-------|------|--------|-----|----|----------------|--------------------|---|
-|CUB-200-2011|Bird|200|5,994|5,794|89.4|87.69|inception_mixed_6e|
-|FGVC-Aircraft|Aircraft|100|6,667|3,333|93.0|92.02|inception_mixed_6e|
-|Stanford Cars|Car|196|8,144|8,041|94.5|94.50|inception_mixed_6e|
-|Stanford Dogs|Dog|120|12,000|8,580|92.2|89.43|inception_mixed_7c|
+|[FGVC-Aircraft](http://www.robots.ox.ac.uk/~vgg/data/fgvc-aircraft/)|Aircraft|100|6,667|3,333|93.0|93.28|inception_mixed_6e|
+|[CUB-200-2011](http://www.vision.caltech.edu/visipedia/CUB-200-2011.html)|Bird|200|5,994|5,794|89.4|88.28|inception_mixed_6e|
+|[Stanford Cars](https://ai.stanford.edu/~jkrause/cars/car_dataset.html)|Car|196|8,144|8,041|94.5|94.38|inception_mixed_6e|
+|[Stanford Dogs](http://vision.stanford.edu/aditya86/ImageNetDogs/)|Dog|120|12,000|8,580|92.2|89.66|inception_mixed_7c|
 
 
 
@@ -115,20 +113,22 @@ net = WSDAN(num_classes=num_classes, M=num_attentions, net='resnet50', pretraine
         └─── test_list.mat
   ```
 
+
 ### Run
 
 1. ``` git clone``` this repo.
 
 2. Prepare data and **modify DATAPATH** in ```datasets/<abcd>_dataset.py```.
 
-3. Set configurations in ```config.py``` (Training Config, Model Config, Dataset/Path Config):
+3. **Set configurations** in ```config.py``` (Training Config, Model Config, Dataset/Path Config):
+    
     ```python
     tag = 'aircraft'  # 'aircraft', 'bird', 'car', or 'dog'
     ```
     
 4. ```$ nohup python3 train.py > progress.bar &``` for training.
 
-5. ```$ tail -f progress.bar``` to see training process (other logs are written in ```<config.save_dir>/train.log```).
+5. ```$ tail -f progress.bar``` to see training process (tqdm package is required. Other logs are written in ```<config.save_dir>/train.log```).
 
 6. Set configurations in ```config.py``` (Eval Config) and run ```$ python3 eval.py``` for evaluation and visualization.
 

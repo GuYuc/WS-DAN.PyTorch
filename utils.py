@@ -1,6 +1,6 @@
 """Utils
 Created: Nov 11,2019 - Yuchong Gu
-Revised: Nov 29,2019 - Yuchong Gu
+Revised: Dec 03,2019 - Yuchong Gu
 """
 import torch
 import random
@@ -140,7 +140,7 @@ class ModelCheckpoint(Callback):
 ##################################
 # augment function
 ##################################
-def batch_augment(images, attention_map, mode='crop', theta=0.5):
+def batch_augment(images, attention_map, mode='crop', theta=0.5, padding_ratio=0.1):
     batches, _, imgH, imgW = images.size()
 
     if mode == 'crop':
@@ -154,10 +154,10 @@ def batch_augment(images, attention_map, mode='crop', theta=0.5):
 
             crop_mask = F.upsample_bilinear(atten_map, size=(imgH, imgW)) >= theta_c
             nonzero_indices = torch.nonzero(crop_mask[0, 0, ...])
-            height_min = max(int(nonzero_indices[:, 0].min().item() - 0.05 * imgH), 0)
-            height_max = min(int(nonzero_indices[:, 0].max().item() + 0.05 * imgH), imgH)
-            width_min = max(int(nonzero_indices[:, 1].min().item() - 0.05 * imgW), 0)
-            width_max = min(int(nonzero_indices[:, 1].max().item() + 0.05 * imgW), imgW)
+            height_min = max(int(nonzero_indices[:, 0].min().item() - padding_ratio * imgH), 0)
+            height_max = min(int(nonzero_indices[:, 0].max().item() + padding_ratio * imgH), imgH)
+            width_min = max(int(nonzero_indices[:, 1].min().item() - padding_ratio * imgW), 0)
+            width_max = min(int(nonzero_indices[:, 1].max().item() + padding_ratio * imgW), imgW)
 
             crop_images.append(
                 F.upsample_bilinear(images[batch_index:batch_index + 1, :, height_min:height_max, width_min:width_max],
@@ -192,13 +192,14 @@ def get_transform(resize, phase='train'):
             transforms.Resize(size=(int(resize[0] / 0.875), int(resize[1] / 0.875))),
             transforms.RandomCrop(resize),
             transforms.RandomHorizontalFlip(0.5),
-            transforms.ColorJitter(brightness=0.4, contrast=0.5, saturation=0.5, hue=0.2),
+            transforms.ColorJitter(brightness=0.126, saturation=0.5),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
     else:
         return transforms.Compose([
-            transforms.Resize(resize),
+            transforms.Resize(size=(int(resize[0] / 0.875), int(resize[1] / 0.875))),
+            transforms.CenterCrop(resize),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])

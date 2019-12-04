@@ -1,6 +1,6 @@
 """EVALUATION
 Created: Nov 22,2019 - Yuchong Gu
-Revised: Nov 29,2019 - Yuchong Gu
+Revised: Dec 03,2019 - Yuchong Gu
 """
 import os
 import logging
@@ -8,9 +8,8 @@ import warnings
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 from torchvision import transforms
-import torch.backends.cudnn as cudnn
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import config
@@ -18,8 +17,11 @@ from models import WSDAN
 from datasets import get_trainval_datasets
 from utils import TopKAccuracyMetric, batch_augment
 
+# GPU settings
+assert torch.cuda.is_available()
 os.environ['CUDA_VISIBLE_DEVICES'] = config.GPU
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda")
+torch.backends.cudnn.benchmark = True
 
 # visualize
 visualize = config.visualize
@@ -76,10 +78,9 @@ def main():
     ##################################
     # use cuda
     ##################################
-    cudnn.benchmark = True
     net.to(device)
-    net = nn.DataParallel(net)
-    net.eval()
+    if torch.cuda.device_count() > 1:
+        net = nn.DataParallel(net)
 
     ##################################
     # Prediction
@@ -89,6 +90,7 @@ def main():
     raw_accuracy.reset()
     ref_accuracy.reset()
 
+    net.eval()
     with torch.no_grad():
         pbar = tqdm(total=len(test_loader), unit=' batches')
         pbar.set_description('Validation')
@@ -100,7 +102,7 @@ def main():
             y_pred_raw, _, attention_maps = net(X)
 
             # Augmentation with crop_mask
-            crop_image = batch_augment(X, attention_maps, mode='crop', theta=0.1)
+            crop_image = batch_augment(X, attention_maps, mode='crop', theta=0.1, padding_ratio=0.05)
 
             y_pred_crop, _, _ = net(crop_image)
             y_pred = (y_pred_raw + y_pred_crop) / 2.
